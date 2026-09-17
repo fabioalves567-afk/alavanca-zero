@@ -933,39 +933,214 @@ function tabVoz(){
 }
 
 /* ============ TAB MATRIZ DE CAUSAS ============ */
-const MATRIZ_KEYWORDS = {
-  "MÉTODO": ["sequência","instrução","padrão","processo","checklist","procedimento"],
-  "MÁQUINA": ["ferramenta","equipamento","dispositivo","torque","chave","skillit"],
-  "MEIO AMBIENTE": ["posto","movimentação","conversa","distração","ritmo","barulho","espaço"],
-  "PESSOA": ["cansaço","atenção","distraído","esqueci","pressa","dúvida"]
+/*
+   A matriz não "define" a causa. Ela organiza evidências citadas pelos
+   operadores em categorias para facilitar a análise do processo.
+   Fontes usadas: Q3, Q4, Q6, Q7, Q8, Q9, Q10, Q11, Q12, Q13, Q14 e Q15.
+*/
+const MATRIZ_CATEGORIAS = {
+  "MÉTODO": {
+    icon:"📘",
+    keywords:["padrão","instrução","procedimento","sequência","checklist","informação","visual","imagem","foto","marcação","vídeo","conferência","conferir","verificar","regulagem","posicionamento"],
+    exact:{
+      q3:["Sim, mas poderia ser mais claro","Parcialmente","Não"],
+      q7:["Parcialmente","Não"],
+      q4:["Dificuldade para visualizar o padrão","Falta de informação"],
+      q8:[],
+      q12:[]
+    }
+  },
+  "MÁQUINA": {
+    icon:"⚙️",
+    keywords:["ferramenta","equipamento","dispositivo","torque","chave","skillit","aperto","máquina"],
+    exact:{
+      q4:["Ferramenta/equipamento"],
+      q8:[],
+      q9:["Problemas no equipamento"],
+      q12:["Dispositivo à prova de erro"]
+    }
+  },
+  "MEIO AMBIENTE": {
+    icon:"🏭",
+    keywords:["posto","movimentação","conversa","distração","ritmo","barulho","ruído","espaço","pressão","correria"],
+    exact:{
+      q4:["Ritmo da linha","Conversas ou movimentação no posto"],
+      q9:["Conversas","Movimentação de pessoas","Pressão/ritmo da produção"]
+    }
+  },
+  "PESSOA": {
+    icon:"👷",
+    keywords:["atenção","distraído","distração","cansaço","esqueci","pressa","dúvida","treinamento","treinar","explicar","ensinar","ajuda"],
+    exact:{
+      q9:["Conversas","Dúvidas sobre o processo","Cansaço"],
+      q10:["Às vezes","Raramente","Não"],
+      q11:["Regular","Precisa melhorar","Não recebi treinamento específico"],
+      q12:[]
+    }
+  },
+  "PROCESSO": {
+    icon:"🔄",
+    keywords:["tempo","ritmo","modelo","mudança","repetição","complexidade","ergonomia","ciclo","fixação","regulagem","aperto"],
+    exact:{
+      q4:["Mudança de modelo","Ritmo da linha"],
+      q5:[],
+      q6:["Na maioria das vezes","Às vezes","Não"],
+      q13:["Sim","Talvez"]
+    }
+  }
 };
 
-function classifySuggestion(txt){
-  const low = (txt||"").toLowerCase();
-  const found = [];
-  Object.entries(MATRIZ_KEYWORDS).forEach(([cat,kws])=>{
-    if(kws.some(k=>low.includes(k))) found.push(cat);
+function matrizArray(v){
+  if(Array.isArray(v)) return v.filter(x=>x!==null && x!==undefined && String(x).trim());
+  if(v===null || v===undefined || String(v).trim()==="") return [];
+  return [String(v)];
+}
+
+function textoMatriz(v){
+  return matrizArray(v).join("; ");
+}
+
+function addMatrizEvidence(bucket, category, text, source, kind="evidencia"){
+  const clean=String(text||"").trim();
+  if(!clean) return;
+  bucket[category].push({text:clean, source, kind});
+}
+
+function categoriaPorTextoLivre(text){
+  const low=(text||"").toLowerCase();
+  const found=[];
+  Object.entries(MATRIZ_CATEGORIAS).forEach(([cat, cfg])=>{
+    if(cfg.keywords.some(k=>low.includes(k))) found.push(cat);
   });
   return found;
 }
 
-function tabMatriz(){
-  const list = filteredResponses();
-  const all = list.flatMap(r=>[r.respostas.q14, r.respostas.q15]).filter(t=>t && t.trim());
-  const buckets = {"MÉTODO":[], "MÁQUINA":[], "MEIO AMBIENTE":[], "PESSOA":[]};
-  all.forEach(txt=>{
-    const cats = classifySuggestion(txt);
-    cats.forEach(c=>buckets[c].push(txt));
+function montarMatriz(list){
+  const buckets={};
+  Object.keys(MATRIZ_CATEGORIAS).forEach(cat=>buckets[cat]=[]);
+
+  list.forEach(r=>{
+    const a=r.respostas||{};
+
+    /* Respostas estruturadas: mapeamento explícito das opções do questionário. */
+    Object.entries(MATRIZ_CATEGORIAS).forEach(([cat,cfg])=>{
+      Object.entries(cfg.exact||{}).forEach(([qid, options])=>{
+        const values=matrizArray(a[qid]);
+        values.forEach(value=>{
+          if(options.includes(value)) addMatrizEvidence(buckets,cat,value,`Q${qid.replace("q","")}`);
+        });
+      });
+    });
+
+    /* Respostas abertas: Q14 e Q15 entram somente quando há indícios textuais.
+       Um mesmo texto pode aparecer em mais de uma categoria quando contém
+       sinais de categorias diferentes; isso é intencional e deve ser tratado
+       como pista para análise, não como causa definitiva. */
+    ["q14","q15"].forEach(qid=>{
+      matrizArray(a[qid]).forEach(value=>{
+        const cats=categoriaPorTextoLivre(value);
+        cats.forEach(cat=>addMatrizEvidence(buckets,cat,value,`Q${qid.replace("q","")}`,"aberta"));
+      });
+    });
   });
+
+  return buckets;
+}
+
+function agruparMatrizItens(items){
+  const groups={};
+  items.forEach(item=>{
+    const key=item.text.toLowerCase();
+    if(!groups[key]) groups[key]={text:item.text,count:0,sources:new Set(),kind:new Set()};
+    groups[key].count++;
+    groups[key].sources.add(item.source);
+    groups[key].kind.add(item.kind);
+  });
+  return Object.values(groups).sort((a,b)=>b.count-a.count || a.text.localeCompare(b.text,"pt-BR"));
+}
+
+function matrizCategoriaHtml(cat,items){
+  const grupos=agruparMatrizItens(items);
+  const total=items.length;
+  return `
+    <div class="matrix-cat" style="margin-top:18px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <h4 style="margin:0;">${MATRIZ_CATEGORIAS[cat].icon} ${cat}</h4>
+        <span class="theme-tag">${total} evidência(s)</span>
+      </div>
+      ${grupos.length ? `
+        <div class="small" style="margin:7px 0 8px;">Principais sinais citados:</div>
+        ${grupos.slice(0,6).map((g,i)=>`
+          <div class="response-item" style="margin-top:6px;">
+            <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
+              <span><b>${i+1}. ${escapeHtml(g.text)}</b></span>
+              <span class="theme-tag">${g.count}x</span>
+            </div>
+            <div class="small" style="margin-top:4px;">Fonte: ${Array.from(g.sources).join(", ")}</div>
+          </div>
+        `).join("")}
+        ${grupos.length>6?`<div class="small" style="margin-top:8px;">+ ${grupos.length-6} outro(s) sinal(is) nesta categoria.</div>`:""}
+      ` : `<p class="small">Nenhuma evidência classificada nesta categoria.</p>`}
+    </div>
+  `;
+}
+
+function tabMatriz(){
+  const list=filteredResponses();
+  const buckets=montarMatriz(list);
+  const totals=Object.entries(buckets).map(([cat,items])=>[cat,items.length]).sort((a,b)=>b[1]-a[1]);
+  const totalEvidencias=totals.reduce((sum,[,n])=>sum+n,0);
+  const q14=list.flatMap(r=>matrizArray(r.respostas?.q14));
+  const q15=list.flatMap(r=>matrizArray(r.respostas?.q15));
+
   return `
     <div class="card">${filtroPeriodoHtml()}</div>
     <div class="card">
-      <p class="small">Organização automática das sugestões dos operadores por categoria (Método / Máquina / Meio Ambiente / Pessoa), sem atribuir causa definitiva. "Pessoa" só aparece quando a própria resposta menciona um fator humano, sem julgamento.</p>
-      ${Object.entries(buckets).map(([cat,items])=>`
-        <div class="matrix-cat">
-          <h4>${cat} (${items.length})</h4>
-          ${items.length? items.map(t=>`<div class="response-item">${escapeHtml(t)}</div>`).join("") : `<p class="small">Nenhuma sugestão classificada nesta categoria.</p>`}
-        </div>`).join("")}
+      <h3 style="margin-top:0;">🧩 Matriz de Causas — visão das evidências</h3>
+      <p class="small">A matriz reúne respostas estruturadas e textos abertos relacionados ao problema. Ela <b>não define uma causa definitiva</b>: mostra sinais citados pelos operadores para orientar a investigação.</p>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:14px;">
+        ${totals.map(([cat,n])=>`<div class="response-item" style="text-align:center;"><div style="font-size:20px;">${MATRIZ_CATEGORIAS[cat].icon}</div><b>${cat}</b><div style="font-size:22px; color:var(--azul); margin-top:4px;">${n}</div><span class="small">evidências</span></div>`).join("")}
+      </div>
+      <div class="small" style="margin-top:12px;">Total de evidências organizadas: <b>${totalEvidencias}</b> · Respostas analisadas: <b>${list.length}</b></div>
+      <div class="small" style="margin-top:6px;">Uma mesma resposta pode aparecer em mais de uma categoria quando houver sinais de naturezas diferentes. Por isso, os totais das categorias não representam pessoas nem causas definitivas.</div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">🔎 Sinais por categoria</h3>
+      ${Object.keys(MATRIZ_CATEGORIAS).map(cat=>matrizCategoriaHtml(cat,buckets[cat])).join("")}
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">💡 Prevenções e mudanças sugeridas</h3>
+      <div class="small" style="margin-bottom:10px;">As sugestões abaixo vêm principalmente das Q8, Q12 e Q15 e devem ser avaliadas junto ao processo.</div>
+      ${[
+        ...list.flatMap(r=>matrizArray(r.respostas?.q8).map(x=>({text:x,source:"Q8"}))),
+        ...list.flatMap(r=>matrizArray(r.respostas?.q12).map(x=>({text:x,source:"Q12"}))),
+        ...list.flatMap(r=>matrizArray(r.respostas?.q15).map(x=>({text:x,source:"Q15"})))
+      ].length ? `
+        ${agruparMatrizItens([
+          ...list.flatMap(r=>matrizArray(r.respostas?.q8).map(x=>({text:x,source:"Q8",kind:"prevenção"}))),
+          ...list.flatMap(r=>matrizArray(r.respostas?.q12).map(x=>({text:x,source:"Q12",kind:"prevenção"}))),
+          ...list.flatMap(r=>matrizArray(r.respostas?.q15).map(x=>({text:x,source:"Q15",kind:"prevenção"})))
+        ]).slice(0,10).map((g,i)=>`
+          <div class="response-item" style="margin-top:6px;">
+            <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
+              <span><b>${i+1}. ${escapeHtml(g.text)}</b></span>
+              <span class="theme-tag">${g.count}x</span>
+            </div>
+            <div class="small" style="margin-top:4px;">Fonte: ${Array.from(g.sources).join(", ")}</div>
+          </div>
+        `).join("")}
+      ` : `<p class="small">Nenhuma sugestão encontrada no período.</p>`}
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">🧠 Como usar esta matriz</h3>
+      <div class="insight">1. Identifique os sinais mais repetidos.</div>
+      <div class="insight">2. Volte às respostas originais para entender o contexto.</div>
+      <div class="insight">3. Valide a hipótese no posto antes de definir uma ação.</div>
+      <div class="insight">4. Priorize ações de método, processo, equipamento e condições do posto antes de atribuir responsabilidade individual.</div>
+      ${q14.length || q15.length ? `<p class="small" style="margin-top:12px;">Há ${q14.length} relato(s) na Q14 e ${q15.length} sugestão(ões) abertas na Q15 consideradas nesta análise.</p>` : ""}
     </div>
   `;
 }

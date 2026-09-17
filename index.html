@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ALAVANCA ZERO — Diagnóstico Operacional</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root{
+  --azul-escuro:#001e50; --azul:#0040c1; --cinza:#1a1a2e;
+  --verde:#00c853; --amarelo:#ffd600; --vermelho:#d50000;
+  --bg:#f4f6fa; --card:#ffffff; --texto:#1a1a2e; --texto-suave:#5b6472;
+  --borda:#e2e6ee;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+body{margin:0; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:var(--bg); color:var(--texto);}
+#app{max-width:720px; margin:0 auto; min-height:100vh; background:var(--bg); padding-bottom:40px;}
+.header{background:linear-gradient(135deg, var(--azul-escuro), var(--azul)); color:#fff; padding:22px 20px; border-radius:0 0 16px 16px;}
+.header h1{margin:0; font-size:22px; letter-spacing:1px;}
+.header .sub{opacity:.9; font-size:13px; margin-top:4px;}
+.card{background:var(--card); border-radius:12px; padding:18px; margin:16px; box-shadow:0 2px 10px rgba(0,0,0,.06); border:1px solid var(--borda);}
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:14px 20px; border-radius:10px; border:none; font-size:15px; font-weight:700; cursor:pointer; width:100%; transition:.15s;}
+.btn-primary{background:var(--azul); color:#fff;}
+.btn-primary:active{background:var(--azul-escuro);}
+.btn-outline{background:#fff; border:1.5px solid var(--azul); color:var(--azul);}
+.btn-ghost{background:#eef1f7; color:var(--texto);}
+.btn-row{display:flex; gap:10px; margin:16px;}
+.btn-row .btn{width:auto; flex:1;}
+.progress-wrap{margin:16px; }
+.progress-bar-bg{background:#e2e6ee; border-radius:8px; height:10px; overflow:hidden;}
+.progress-bar-fill{background:var(--azul); height:100%; border-radius:8px; transition:width .3s;}
+.progress-label{font-size:13px; color:var(--texto-suave); margin-top:6px; text-align:center;}
+.opt-grid{display:flex; flex-direction:column; gap:10px; margin-top:14px;}
+.opt-btn{padding:14px 16px; border-radius:10px; border:1.5px solid var(--borda); background:#fff; font-weight:600; text-align:left; cursor:pointer; font-size:15px;}
+.opt-btn.selected{border-color:var(--azul); background:#eaf0ff; color:var(--azul-escuro);}
+.opt-btn .chk{float:right; opacity:0;}
+.opt-btn.selected .chk{opacity:1;}
+.yn-row{display:flex; gap:10px; margin-top:14px;}
+.yn-row .opt-btn{flex:1; text-align:center;}
+.scale-row{display:flex; gap:8px; margin-top:14px;}
+.scale-row .opt-btn{flex:1; text-align:center; padding:14px 4px;}
+textarea{width:100%; min-height:110px; border-radius:10px; border:1.5px solid var(--borda); padding:12px; font-family:inherit; font-size:15px; margin-top:14px;}
+.q-text{font-size:18px; font-weight:700; line-height:1.4;}
+.q-required{color:var(--vermelho); font-size:13px; margin-top:4px;}
+.badge{display:inline-block; background:#eaf0ff; color:var(--azul-escuro); border-radius:20px; padding:4px 12px; font-size:12px; font-weight:700;}
+.kpi-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:16px;}
+.kpi-card{background:#fff; border-radius:12px; padding:14px; border:1px solid var(--borda); box-shadow:0 2px 8px rgba(0,0,0,.05);}
+.kpi-val{font-size:26px; font-weight:800; color:var(--azul-escuro);}
+.kpi-label{font-size:12px; color:var(--texto-suave); margin-top:4px;}
+.tabs{display:flex; overflow-x:auto; gap:6px; margin:16px; padding-bottom:4px;}
+.tab-btn{white-space:nowrap; padding:9px 14px; border-radius:20px; border:1.5px solid var(--borda); background:#fff; font-size:13px; font-weight:700; cursor:pointer; color:var(--texto-suave);}
+.tab-btn.active{background:var(--azul); color:#fff; border-color:var(--azul);}
+.chart-box{background:#fff; border-radius:12px; padding:14px; margin:16px; border:1px solid var(--borda);}
+.chart-box h3{margin:0 0 10px; font-size:14px; color:var(--texto-suave);}
+canvas{max-width:100%;}
+.insight{background:#eaf0ff; border-left:4px solid var(--azul); border-radius:8px; padding:12px 14px; margin:10px 0; font-size:14px;}
+input[type=text],input[type=password],input[type=email],input[type=number],select{width:100%; padding:12px; border-radius:8px; border:1.5px solid var(--borda); font-size:15px; margin-top:6px; font-family:inherit;}
+label{font-size:13px; font-weight:700; color:var(--texto-suave); display:block; margin-top:12px;}
+.response-item{border:1px solid var(--borda); border-radius:10px; padding:12px; margin-bottom:10px; font-size:13px;}
+.response-item b{color:var(--azul-escuro);}
+.icon-btn{border:none; background:none; cursor:pointer; font-size:16px; padding:4px 8px;}
+.q-admin-item{border:1px solid var(--borda); border-radius:10px; padding:12px; margin-bottom:10px;}
+.q-admin-item.inactive{opacity:.5;}
+.q-admin-row{display:flex; justify-content:space-between; align-items:center;}
+.small{font-size:12px; color:var(--texto-suave);}
+.center{text-align:center;}
+.top-link{position:fixed; top:14px; left:14px; z-index:50; background:rgba(255,255,255,.85); border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,.15); cursor:pointer; text-decoration:none; color:var(--azul-escuro); font-size:18px;}
+.toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--cinza); color:#fff; padding:12px 20px; border-radius:24px; font-size:14px; z-index:100; box-shadow:0 4px 14px rgba(0,0,0,.25);}
+.pin-dots{display:flex; justify-content:center; gap:16px; margin:24px 0;}
+.pin-dot{width:18px; height:18px; border-radius:50%; border:2px solid var(--azul); background:transparent;}
+.pin-dot.filled{background:var(--azul);}
+.pin-pad{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; max-width:280px; margin:0 auto;}
+.pin-key{padding:18px 0; border-radius:12px; border:1.5px solid var(--borda); background:#fff; font-size:22px; font-weight:700; cursor:pointer;}
+.pin-key:active{background:#eaf0ff;}
+.pin-key.wide{grid-column:span 1;}
+.modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:200; display:flex; align-items:flex-end; justify-content:center;}
+.modal-box{background:#fff; width:100%; max-width:720px; border-radius:16px 16px 0 0; max-height:88vh; overflow-y:auto; padding:20px;}
+.modal-box h2{margin:0 0 4px; font-size:18px;}
+.modal-close{float:right; border:none; background:#eef1f7; border-radius:50%; width:32px; height:32px; font-size:16px; cursor:pointer;}
+.modal-section{margin-top:18px;}
+.modal-section h4{margin:0 0 8px; font-size:12px; color:var(--texto-suave); letter-spacing:.5px;}
+.storage-bar-bg{background:#eef1f7; border-radius:8px; height:10px; overflow:hidden; margin-top:6px;}
+.storage-bar-fill{background:var(--azul); height:100%;}
+.btn-purple{background:#6a3de8; color:#fff;}
+.btn-dark{background:var(--cinza); color:#fff;}
+.modal-btn-row{display:flex; gap:10px; margin-top:10px;}
+.modal-btn-row .btn{width:auto; flex:1; padding:12px; font-size:13px;}
+.theme-tag{display:inline-block; background:#eaf0ff; color:var(--azul-escuro); border-radius:14px; padding:4px 12px; font-size:12px; font-weight:700; margin:3px 4px 3px 0;}
+.matrix-cat{margin-bottom:14px;}
+.matrix-cat h4{margin:0 0 6px; font-size:13px; color:var(--azul);}
+.filter-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+.filter-row .tab-btn{margin:0;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ============ CONFIGURAÇÃO FIREBASE ============
+   Substitua pelos dados do SEU projeto Firebase
+   (Console Firebase > Configurações do projeto > Seus apps > SDK) */
+const firebaseConfig = {
+  apiKey: "AIzaSyAJCgFSVEPTyydDAMc5QbBPnSBq2cWohHc",
+  authDomain: "fahrwerk-smartflow.firebaseapp.com",
+  databaseURL: "https://fahrwerk-smartflow-default-rtdb.firebaseio.com",
+  projectId: "fahrwerk-smartflow",
+  storageBucket: "fahrwerk-smartflow.firebasestorage.app",
+  messagingSenderId: "1084077814941",
+  appId: "1:1084077814941:web:ce4647a33b3c3d0edad074",
+  measurementId: "G-M02DYNDTNF"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+const VERSAO_QUESTIONARIO = "v1";
+// Conta técnica usada somente pelo login por PIN.
+// Crie esta conta uma única vez no Firebase Authentication.
+// O monitor nunca precisa informar este e-mail.
+const MONITOR_AUTH_EMAIL = "monitor@alavanca-zero.app";
+const PIN_PREFIX = "ALZ-";
+
+
+/* ÁREA DO MONITOR
+   O monitor digita SOMENTE o PIN.
+   Internamente, o PIN é usado como senha do Firebase Authentication.
+   O PIN não é gravado no Firestore nem fica visível na tela. */
+
+/* ============ PERGUNTAS PADRÃO (seed inicial) ============ */
+const DEFAULT_QUESTIONS = [
+  {id:"q1", order:1, active:true, required:true, type:"single",
+   text:"Como você considera a operação da alavanca de mudanças?",
+   options:["Muito fácil","Fácil","Média","Difícil","Muito difícil"]},
+  {id:"q2", order:2, active:true, required:true, type:"single",
+   text:"Qual etapa da operação da alavanca exige maior atenção?",
+   options:["Posicionamento da alavanca","Fixação","Regulagem","Aperto/torque","Conferência final","Todas igualmente"]},
+  {id:"q3", order:3, active:true, required:true, type:"single",
+   text:"Você considera que o padrão correto da alavanca está claro durante a operação?",
+   options:["Sim, totalmente","Sim, mas poderia ser mais claro","Parcialmente","Não"]},
+  {id:"q4", order:4, active:true, required:true, type:"multi",
+   text:"O que pode dificultar a execução correta dessa operação?",
+   options:["Ritmo da linha","Conversas ou movimentação no posto","Mudança de modelo","Dificuldade para visualizar o padrão","Ferramenta/equipamento","Falta de informação","Outro"]},
+  {id:"q5", order:5, active:true, required:true, type:"single",
+   text:"Em qual momento existe maior possibilidade de ocorrer um erro?",
+   options:["No início da operação","Durante o posicionamento","Durante a fixação","Durante a regulagem","Durante o aperto","Na conferência final"]},
+  {id:"q6", order:6, active:true, required:true, type:"single",
+   text:"Você considera que existe tempo suficiente para realizar a operação corretamente?",
+   options:["Sim","Na maioria das vezes","Às vezes","Não"]},
+  {id:"q7", order:7, active:true, required:true, type:"single",
+   text:"A posição correta da alavanca é fácil de identificar visualmente?",
+   options:["Sim","Parcialmente","Não"]},
+  {id:"q8", order:8, active:true, required:true, type:"multi",
+   text:"O que poderia melhorar a visualização do padrão correto?",
+   options:["Foto/imagem no posto","Marcação visual na própria peça","Instrução de trabalho mais clara","Vídeo curto","Treinamento prático","Não vejo necessidade de mudança","Outro"]},
+  {id:"q9", order:9, active:true, required:true, type:"multi",
+   text:"Durante essa operação, o que mais pode tirar a atenção do processo?",
+   options:["Conversas","Movimentação de pessoas","Mudança de modelo","Pressão/ritmo da produção","Problemas no equipamento","Dúvidas sobre o processo","Cansaço","Nada específico","Outro"]},
+  {id:"q10", order:10, active:true, required:true, type:"single",
+   text:"Quando você tem alguma dúvida sobre a operação, consegue obter ajuda rapidamente?",
+   options:["Sempre","Na maioria das vezes","Às vezes","Raramente","Não"]},
+  {id:"q11", order:11, active:true, required:true, type:"single",
+   text:"Como você avalia o treinamento recebido para essa operação?",
+   options:["Muito bom","Bom","Regular","Precisa melhorar","Não recebi treinamento específico"]},
+  {id:"q12", order:12, active:true, required:true, type:"multi",
+   text:"Qual tipo de prevenção você considera mais útil para evitar um erro na alavanca?",
+   options:["Melhor informação visual","Treinamento prático","Checklist de conferência","Dispositivo à prova de erro","Conferência adicional","Outra solução"]},
+  {id:"q13", order:13, active:true, required:true, type:"single",
+   text:"Você acredita que existe alguma característica do processo que favorece a ocorrência do erro?",
+   options:["Sim","Talvez","Não","Não sei avaliar"]},
+  {id:"q14", order:14, active:true, required:false, type:"open",
+   text:"Qual característica do processo pode favorecer o erro?",
+   conditional:{dependsOn:"q13", showIfIn:["Sim","Talvez"]}},
+  {id:"q15", order:15, active:true, required:false, type:"open",
+   text:'Se você pudesse mudar apenas uma coisa nessa operação para ajudar a chegar ao "Erro Zero", o que mudaria?'}
+];
+
+/* ============ ESTADO GLOBAL ============ */
+let state = {
+  screen: "intro",           // intro | quiz | thanks | monitorLogin | monitor
+  questions: [],
+  visibleQuestions: [],
+  qIndex: 0,
+  answers: {},
+  submitting: false,
+  monitorLoggedIn: false,
+  monitorUser: null,
+  pinInput: "",
+  showPinModal: false,
+  showBackupModal: false,
+  monitorTab: "dashboard",   // dashboard | analise | voz | matriz | respostas | admin
+  filtroPeriodo: "todos",    // todos | hoje | 7dias | 30dias
+  responses: [],
+  responsesLoaded: false,
+  searchTerm: "",
+  editingQuestion: null,
+  editingResponse: null,
+  editingResponseAnswers: {},
+  charts: {}
+};
+
+const $ = sel => document.querySelector(sel);
+const app = () => document.getElementById("app");
+
+function toast(msg, ms){
+  const t=document.createElement("div");
+  t.className="toast"; t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), ms||4000);
+}
+
+/* Evita que uma chamada ao Firestore fique "pendurada" pra sempre (ex.: bloqueio de rede corporativa) */
+function withTimeout(promise, ms, msg){
+  return Promise.race([
+    promise,
+    new Promise((_,reject)=> setTimeout(()=>reject(new Error(msg||"Tempo esgotado ao falar com o servidor.")), ms||12000))
+  ]);
+}
+
+/* ============ CARREGAMENTO DE PERGUNTAS ============ */
+async function loadQuestions(){
+  try{
+    const doc = await withTimeout(db.collection("config").doc("questionario").get(), 12000, "Tempo esgotado ao carregar as perguntas.");
+    if(doc.exists && doc.data().perguntas && doc.data().perguntas.length){
+      state.questions = doc.data().perguntas.sort((a,b)=>a.order-b.order);
+    } else {
+      await withTimeout(db.collection("config").doc("questionario").set({perguntas: DEFAULT_QUESTIONS}), 12000);
+      state.questions = DEFAULT_QUESTIONS.slice();
+    }
+  }catch(e){
+    console.error("Erro ao carregar perguntas, usando padrão local", e);
+    state.questions = DEFAULT_QUESTIONS.slice();
+    toast("Sem conexão com o servidor — usando questionário padrão local.");
+  }
+}
+
+async function saveQuestions(){
+  await withTimeout(
+    db.collection("config").doc("questionario").set({perguntas: state.questions}),
+    12000,
+    "Tempo esgotado ao salvar as perguntas — verifique a conexão."
+  );
+}
+
+/* ============ AUTENTICAÇÃO DO MONITOR ============ */
+function pinToPassword(pin){
+  return PIN_PREFIX + pin;
+}
+
+function validarPin(pin){
+  return /^\d{4}$/.test(pin);
+}
+
+async function signInMonitorPin(pin){
+  if(!validarPin(pin)){
+    toast("Digite um PIN de 4 números.");
+    return;
+  }
+  try{
+    await withTimeout(
+      auth.signInWithEmailAndPassword(MONITOR_AUTH_EMAIL, pinToPassword(pin)),
+      15000,
+      "Tempo esgotado no login."
+    );
+
+    const user = auth.currentUser;
+    if(!user) throw new Error("Usuário não autenticado.");
+
+    const profile = await withTimeout(
+      db.collection("users").doc(user.uid).get(),
+      10000,
+      "Tempo esgotado ao validar o acesso."
+    );
+
+    if(!profile.exists || profile.data().role !== "monitor"){
+      await auth.signOut();
+      throw new Error("Usuário não autorizado como monitor.");
+    }
+
+    state.monitorLoggedIn = true;
+    state.monitorUser = user;
+    state.screen = "monitor";
+    state.monitorTab = "dashboard";
+    state.pinInput = "";
+    await loadResponses();
+    render();
+  }catch(e){
+    console.error(e);
+    state.pinInput = "";
+    render();
+    toast("PIN incorreto ou acesso não autorizado.", 4000);
+  }
+}
+
+async function alterarPinMonitor(pinAtual, pinNovo){
+  if(!validarPin(pinAtual) || !validarPin(pinNovo)){
+    toast("O PIN deve ter exatamente 4 números.");
+    return;
+  }
+  if(pinAtual === pinNovo){
+    toast("O novo PIN deve ser diferente do atual.");
+    return;
+  }
+
+  const user = auth.currentUser;
+  if(!user){
+    toast("Sessão do monitor não encontrada.");
+    return;
+  }
+
+  try{
+    const credential = firebase.auth.EmailAuthProvider.credential(
+      MONITOR_AUTH_EMAIL,
+      pinToPassword(pinAtual)
+    );
+
+    await withTimeout(
+      user.reauthenticateWithCredential(credential),
+      15000,
+      "Tempo esgotado ao validar o PIN atual."
+    );
+
+    await withTimeout(
+      user.updatePassword(pinToPassword(pinNovo)),
+      15000,
+      "Tempo esgotado ao alterar o PIN."
+    );
+
+    state.showPinModal = false;
+    state.pinInput = "";
+    render();
+    toast("PIN alterado com sucesso.");
+  }catch(e){
+    console.error(e);
+    toast("Não foi possível alterar o PIN. Confira o PIN atual.", 5000);
+  }
+}
+
+async function monitorLogout(){
+  try{ await auth.signOut(); }catch(e){ console.error(e); }
+  state.monitorLoggedIn=false;
+  state.monitorUser=null;
+  state.screen="intro";
+  state.pinInput="";
+  render();
+}
+
+/* ============ NAVEGAÇÃO DO QUIZ ============ */
+
+function computeVisibleQuestions(){
+  const active = state.questions.filter(q=>q.active).sort((a,b)=>a.order-b.order);
+  state.visibleQuestions = active.filter(q=>{
+    if(!q.conditional) return true;
+    const dep = state.answers[q.conditional.dependsOn];
+    const visible = dep && q.conditional.showIfIn.includes(dep);
+    if(!visible && state.answers[q.id]!==undefined) delete state.answers[q.id]; // evita enviar resposta "fantasma" de pergunta condicional escondida
+    return visible;
+  });
+}
+
+function startQuiz(){
+  state.screen="quiz"; state.qIndex=0; state.answers={};
+  computeVisibleQuestions();
+  render();
+}
+
+function currentQuestion(){ return state.visibleQuestions[state.qIndex]; }
+
+function answerValid(q){
+  if(!q.required) return true;
+  const v = state.answers[q.id];
+  if(q.type==="multi") return Array.isArray(v) && v.length>0;
+  return v !== undefined && v !== null && String(v).trim() !== "";
+}
+
+function goNext(){
+  const q = currentQuestion();
+  if(!answerValid(q)){ toast("Essa pergunta precisa de uma resposta."); return; }
+  computeVisibleQuestions();
+  // recompute index position based on same question id, since visible list may change (conditional)
+  const idOrder = state.visibleQuestions.findIndex(x=>x.id===q.id);
+  if(idOrder < state.visibleQuestions.length-1){
+    state.qIndex = idOrder+1;
+    render();
+  } else {
+    submitDiagnostico();
+  }
+}
+
+function goBack(){
+  if(state.qIndex>0){ state.qIndex--; render(); }
+}
+
+async function submitDiagnostico(){
+  state.submitting=true; render();
+  try{
+    await withTimeout(
+      db.collection("diagnosticos_alavanca").add({
+        dataHora: firebase.firestore.FieldValue.serverTimestamp(),
+        versaoQuestionario: VERSAO_QUESTIONARIO,
+        respostas: state.answers
+      }),
+      15000,
+      "Tempo esgotado ao enviar."
+    );
+    state.screen="thanks";
+  }catch(e){
+    console.error(e);
+    toast("Erro ao enviar (" + (e.code||e.message||"falha de conexão") + "). Verifique a rede e tente novamente.", 5000);
+  }
+  state.submitting=false;
+  render();
+}
+
+/* ============ MONITOR: LOGIN POR PIN ============ */
+function pinPress(digit){
+  if(state.pinInput.length>=4) return;
+  state.pinInput += digit;
+  render();
+  if(state.pinInput.length===4){
+    setTimeout(()=> checkPin(), 150);
+  }
+}
+function pinBackspace(){
+  state.pinInput = state.pinInput.slice(0,-1);
+  render();
+}
+async function checkPin(){
+  if(state.pinInput===state.monitorPin){
+    state.monitorLoggedIn=true;
+    state.pinInput="";
+    state.screen="monitor";
+    state.monitorTab="dashboard";
+    await loadResponses();
+    render();
+  } else {
+    toast("PIN incorreto.");
+    state.pinInput="";
+    render();
+  }
+}
+function monitorLogout(){
+  state.monitorLoggedIn=false;
+  state.screen="intro";
+  render();
+}
+
+/* ============ MONITOR: CARREGAR RESPOSTAS ============ */
+async function loadResponses(){
+  try{
+    const snap = await withTimeout(
+      db.collection("diagnosticos_alavanca").orderBy("dataHora","desc").get(),
+      15000,
+      "Tempo esgotado ao carregar respostas."
+    );
+    state.responses = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    state.responsesLoaded = true;
+  }catch(e){
+    console.error(e);
+    toast("Erro ao carregar respostas (" + (e.code||e.message||"falha de conexão") + ").", 5000);
+  }
+}
+
+/* ============ EXCLUSÃO DE RESPOSTAS ============ */
+async function deleteResponse(id){
+  if(!confirm("Excluir esta resposta permanentemente? Essa ação não pode ser desfeita.")) return;
+  try{
+    await withTimeout(db.collection("diagnosticos_alavanca").doc(id).delete(), 12000, "Tempo esgotado ao excluir.");
+    state.responses = state.responses.filter(r=>r.id!==id);
+    render();
+    toast("Resposta excluída.");
+  }catch(e){
+    console.error(e);
+    toast("Erro ao excluir (" + (e.code||e.message||"falha de conexão") + ").", 5000);
+  }
+}
+
+async function deleteAllFiltered(){
+  const list = filteredResponses();
+  if(list.length===0) return;
+  const ok = confirm(`Excluir permanentemente ${list.length} resposta(s)? Essa ação não pode ser desfeita.`);
+  if(!ok) return;
+  const ok2 = confirm(`Confirme novamente: apagar ${list.length} resposta(s) do diagnóstico?`);
+  if(!ok2) return;
+  try{
+    // Firestore permite no máximo 500 operações por lote
+    const chunks = [];
+    for(let i=0;i<list.length;i+=450) chunks.push(list.slice(i,i+450));
+    for(const chunk of chunks){
+      const batch = db.batch();
+      chunk.forEach(r=> batch.delete(db.collection("diagnosticos_alavanca").doc(r.id)) );
+      await withTimeout(batch.commit(), 20000, "Tempo esgotado ao excluir em lote.");
+    }
+    const idsToRemove = new Set(list.map(r=>r.id));
+    state.responses = state.responses.filter(r=>!idsToRemove.has(r.id));
+    render();
+    toast(`${list.length} resposta(s) excluída(s).`);
+  }catch(e){
+    console.error(e);
+    toast("Erro ao excluir em lote (" + (e.code||e.message||"falha de conexão") + ").", 5000);
+  }
+}
+
+/* ============ EDIÇÃO DE RESPOSTAS ============ */
+function startEditResponse(id){
+  const r = state.responses.find(x=>x.id===id);
+  if(!r) return;
+  state.editingResponse = id;
+  state.editingResponseAnswers = {...r.respostas};
+  render();
+}
+function cancelEditResponse(){
+  state.editingResponse = null;
+  state.editingResponseAnswers = {};
+  render();
+}
+async function saveEditResponse(id){
+  try{
+    await withTimeout(
+      db.collection("diagnosticos_alavanca").doc(id).update({respostas: state.editingResponseAnswers}),
+      12000,
+      "Tempo esgotado ao salvar a correção."
+    );
+    const r = state.responses.find(x=>x.id===id);
+    if(r) r.respostas = {...state.editingResponseAnswers};
+    state.editingResponse = null;
+    render();
+    toast("Resposta corrigida com sucesso.");
+  }catch(e){
+    console.error(e);
+    toast("Erro ao salvar (" + (e.code||e.message||"falha de conexão") + ").", 5000);
+  }
+}
+
+function renderEditAnswerInput(q){
+  const v = state.editingResponseAnswers[q.id];
+  if(q.type==="single"||q.type==="yesno"||q.type==="yespartialno"||q.type==="scale"){
+    const opts = q.type==="yesno"? ["Sim","Não"] : q.type==="yespartialno"? ["Sim","Parcialmente","Não"]
+      : q.type==="scale"? Array.from({length:(q.scaleMax||5)-(q.scaleMin||1)+1},(_,i)=>String((q.scaleMin||1)+i)) : (q.options||[]);
+    return `<div class="opt-grid">${opts.map(o=>`
+      <button class="opt-btn ${String(v)===String(o)?"selected":""}" data-edit-single="${q.id}" data-val="${escapeAttr(o)}">${o}</button>`).join("")}</div>`;
+  }
+  if(q.type==="multi"){
+    const arr = Array.isArray(v)?v:[];
+    return `<div class="opt-grid">${(q.options||[]).map(o=>`
+      <button class="opt-btn ${arr.includes(o)?"selected":""}" data-edit-multi="${q.id}" data-val="${escapeAttr(o)}">${o}</button>`).join("")}</div>`;
+  }
+  if(q.type==="open"){
+    return `<textarea data-edit-open="${q.id}" placeholder="Sem resposta">${v?escapeHtml(v):""}</textarea>`;
+  }
+  return "";
+}
+
+function editResponseFormHtml(r){
+  return `
+    <div class="card" style="border:2px solid var(--azul);">
+      <h3 style="margin-top:0;">✏️ Corrigir resposta</h3>
+      <p class="small">${formatDate(r.dataHora)} · v${r.versaoQuestionario||"1"}</p>
+      ${state.questions.slice().sort((a,b)=>a.order-b.order).map(q=>`
+        <div style="margin-top:16px;">
+          <label style="margin-top:0;">${escapeHtml(q.text)}</label>
+          ${renderEditAnswerInput(q)}
+        </div>
+      `).join("")}
+      <div class="btn-row" style="margin-left:0; margin-right:0;">
+        <button class="btn btn-ghost" id="btnCancelEditResp">Cancelar</button>
+        <button class="btn btn-primary" id="btnSaveEditResp" data-save-resp-id="${r.id}">Salvar correção</button>
+      </div>
+    </div>
+  `;
+}
+
+function filteredResponses(){
+  let list = state.responses;
+  const now = new Date();
+  if(state.filtroPeriodo==="hoje"){
+    list = list.filter(r=>{
+      const d = r.dataHora && r.dataHora.toDate ? r.dataHora.toDate() : null;
+      return d && d.toDateString()===now.toDateString();
+    });
+  } else if(state.filtroPeriodo==="7dias"){
+    const lim = new Date(now.getTime()-7*24*60*60*1000);
+    list = list.filter(r=>{
+      const d = r.dataHora && r.dataHora.toDate ? r.dataHora.toDate() : null;
+      return d && d>=lim;
+    });
+  } else if(state.filtroPeriodo==="30dias"){
+    const lim = new Date(now.getTime()-30*24*60*60*1000);
+    list = list.filter(r=>{
+      const d = r.dataHora && r.dataHora.toDate ? r.dataHora.toDate() : null;
+      return d && d>=lim;
+    });
+  }
+  if(state.searchTerm){
+    const term = state.searchTerm.toLowerCase();
+    list = list.filter(r=> JSON.stringify(r.respostas).toLowerCase().includes(term));
+  }
+  return list;
+}
+
+/* ============ RENDER PRINCIPAL ============ */
+function render(){
+  const root = app();
+  if(state.screen==="intro") root.innerHTML = screenIntro();
+  else if(state.screen==="quiz") root.innerHTML = screenQuiz();
+  else if(state.screen==="thanks") root.innerHTML = screenThanks();
+  else if(state.screen==="monitorLogin") root.innerHTML = screenMonitorLogin();
+  else if(state.screen==="monitor") root.innerHTML = screenMonitor();
+  attachEvents();
+  if(state.screen==="monitor" && state.monitorTab==="dashboard") setTimeout(renderCharts,50);
+}
+
+/* ============ TELAS ============ */
+function screenIntro(){
+  return `
+    <div class="header">
+      <h1>ALAVANCA ZERO</h1>
+      <div class="sub">Diagnóstico Operacional</div>
+    </div>
+    <div class="card">
+      <p>Este questionário foi criado para entender melhor a operação da alavanca de mudanças e identificar oportunidades de melhoria.</p>
+      <div class="insight"><b>Suas respostas são anônimas.</b> Não informe seu nome ou qualquer dado pessoal.</div>
+      <p class="small center">Tempo estimado: 2–3 minutos</p>
+    </div>
+    <div class="btn-row"><button class="btn btn-primary" id="btnIniciar">INICIAR DIAGNÓSTICO</button></div>
+    <div class="btn-row"><button class="btn btn-ghost" id="btnMonitorArea" style="font-size:12px;">Área do Monitor</button></div>
+  `;
+}
+
+function screenQuiz(){
+  const q = currentQuestion();
+  if(!q) return `<div class="card center">Carregando...</div>`;
+  const total = state.visibleQuestions.length;
+  const pos = state.qIndex+1;
+  const pct = Math.round((pos/total)*100);
+  return `
+    <div class="header">
+      <h1 style="font-size:17px;">ALAVANCA ZERO</h1>
+      <div class="sub">Diagnóstico Operacional</div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+      <div class="progress-label">Pergunta ${pos} de ${total} · ${pct}% concluído</div>
+    </div>
+    <div class="card">
+      <div class="q-text">${q.text}</div>
+      ${q.required? `<div class="q-required">* Resposta obrigatória</div>`:``}
+      ${renderQuestionInput(q)}
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-outline" id="btnVoltar" ${state.qIndex===0?"disabled style='opacity:.4'":""}>VOLTAR</button>
+      <button class="btn btn-primary" id="btnProxima" ${state.submitting?"disabled":""}>${pos===total? (state.submitting?"ENVIANDO...":"ENVIAR DIAGNÓSTICO") : "PRÓXIMA"}</button>
+    </div>
+  `;
+}
+
+function renderQuestionInput(q){
+  const v = state.answers[q.id];
+  if(q.type==="single"){
+    return `<div class="opt-grid">${q.options.map(o=>`
+      <button class="opt-btn ${v===o?"selected":""}" data-single="${q.id}" data-val="${escapeAttr(o)}">${o} <span class="chk">✓</span></button>`).join("")}</div>`;
+  }
+  if(q.type==="multi"){
+    const arr = Array.isArray(v)?v:[];
+    return `<div class="opt-grid">${q.options.map(o=>`
+      <button class="opt-btn ${arr.includes(o)?"selected":""}" data-multi="${q.id}" data-val="${escapeAttr(o)}">${o} <span class="chk">✓</span></button>`).join("")}</div>`;
+  }
+  if(q.type==="scale"){
+    const min=q.scaleMin||1, max=q.scaleMax||5;
+    let btns="";
+    for(let i=min;i<=max;i++){ btns+=`<button class="opt-btn ${v==i?"selected":""}" data-single="${q.id}" data-val="${i}">${i}</button>`; }
+    return `<div class="scale-row">${btns}</div>`;
+  }
+  if(q.type==="yesno"){
+    return `<div class="yn-row">
+      <button class="opt-btn ${v==="Sim"?"selected":""}" data-single="${q.id}" data-val="Sim">✅ Sim</button>
+      <button class="opt-btn ${v==="Não"?"selected":""}" data-single="${q.id}" data-val="Não">❌ Não</button>
+    </div>`;
+  }
+  if(q.type==="yespartialno"){
+    return `<div class="opt-grid">
+      <button class="opt-btn ${v==="Sim"?"selected":""}" data-single="${q.id}" data-val="Sim">✅ Sim</button>
+      <button class="opt-btn ${v==="Parcialmente"?"selected":""}" data-single="${q.id}" data-val="Parcialmente">Parcialmente</button>
+      <button class="opt-btn ${v==="Não"?"selected":""}" data-single="${q.id}" data-val="Não">❌ Não</button>
+    </div>`;
+  }
+  if(q.type==="open"){
+    return `<textarea data-open="${q.id}" placeholder="Digite sua resposta...">${v?escapeHtml(v):""}</textarea>`;
+  }
+  return "";
+}
+
+function screenThanks(){
+  return `
+    <div class="header"><h1>ALAVANCA ZERO</h1><div class="sub">Diagnóstico Operacional</div></div>
+    <div class="card center">
+      <h2>Obrigado por contribuir! 🙌</h2>
+      <p>Sua resposta foi registrada de forma anônima e será utilizada para identificar oportunidades de melhoria no processo.</p>
+    </div>
+    <div class="btn-row"><button class="btn btn-primary" id="btnFinalizar">FINALIZAR</button></div>
+  `;
+}
+
+function screenMonitorLogin(){
+  const digits = ["1","2","3","4","5","6","7","8","9","⌫","0","C"];
+  return `
+    <a href="#" class="top-link" id="btnVoltarIntro">←</a>
+    <div class="header"><h1>ÁREA DO MONITOR</h1><div class="sub">Acesso restrito</div></div>
+    <div class="card center">
+      <p class="small">Digite o PIN de acesso do Monitor.</p>
+      <div class="pin-dots">
+        ${[0,1,2,3].map(i=>`<span class="pin-dot ${state.pinInput.length>i?"filled":""}"></span>`).join("")}
+      </div>
+      <div class="pin-pad">
+        ${digits.map(d=>`
+          <button class="pin-key" data-pin-key="${d}">${d}</button>
+        `).join("")}
+      </div>
+      <p class="small center" style="margin-top:16px;">O acesso é exclusivo para a área do Monitor.</p>
+    </div>
+  `;
+}
+
+function pinModalHtml(){
+  if(!state.showPinModal) return "";
+  return `
+    <div class="modal-overlay" id="pinOverlay">
+      <div class="modal">
+        <h2>ALTERAR PIN DO MONITOR</h2>
+        <p class="small">Defina um novo PIN de 4 números.</p>
+        <label>PIN atual</label>
+        <input type="password" id="pinAtual" inputmode="numeric" maxlength="4" autocomplete="current-password" placeholder="••••">
+        <label>Novo PIN</label>
+        <input type="password" id="pinNovo" inputmode="numeric" maxlength="4" autocomplete="new-password" placeholder="••••">
+        <label>Confirmar novo PIN</label>
+        <input type="password" id="pinNovo2" inputmode="numeric" maxlength="4" autocomplete="new-password" placeholder="••••">
+        <div class="btn-row" style="margin-left:0;margin-right:0;">
+          <button class="btn btn-ghost" id="btnCancelarPin">Cancelar</button>
+          <button class="btn btn-primary" id="btnSalvarPin">ALTERAR PIN</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function screenMonitor(){
+  const tabs = [
+    ["dashboard","📊 Dashboard"],["analise","🧠 Análise"],["voz","🗣️ Voz do Operador"],
+    ["matriz","🧩 Matriz de Causas"],["respostas","📋 Respostas"],["admin","⚙️ Perguntas"]
+  ];
+  return `
+    <div class="header" style="display:flex; justify-content:space-between; align-items:center;">
+      <div><h1 style="font-size:18px;">DASHBOARD ALAVANCA ZERO</h1><div class="sub">Área do Monitor</div></div>
+      <div style="display:flex; gap:6px;">
+        
+        <button class="icon-btn" style="color:#fff;" id="btnBackup">💾</button>
+        <button class="icon-btn" style="color:#fff;" id="btnSair">Sair ⏻</button>
+      </div>
+    </div>
+    <div class="tabs">${tabs.map(t=>`<button class="tab-btn ${state.monitorTab===t[0]?"active":""}" data-tab="${t[0]}">${t[1]}</button>`).join("")}</div>
+    ${state.showPinModal? pinModalHtml() : ""}
+    ${state.showBackupModal? backupModalHtml() : ""}
+    ${state.monitorTab==="dashboard"? tabDashboard():
+      state.monitorTab==="analise"? tabAnalise():
+      state.monitorTab==="voz"? tabVoz():
+      state.monitorTab==="matriz"? tabMatriz():
+      state.monitorTab==="respostas"? tabRespostas():
+      tabAdmin()}
+  `;
+}
+
+/* ============ FILTRO PERÍODO (comum) ============ */
+function filtroPeriodoHtml(){
+  const opts = [["todos","Todos"],["hoje","Hoje"],["7dias","7 dias"],["30dias","30 dias"]];
+  return `<div class="filter-row">${opts.map(o=>`<button class="tab-btn ${state.filtroPeriodo===o[0]?"active":""}" data-periodo="${o[0]}">${o[1]}</button>`).join("")}</div>`;
+}
+
+/* ============ TAB DASHBOARD ============ */
+function tabDashboard(){
+  const list = filteredResponses();
+  const n = list.length;
+  const pct = arr => n? Math.round(arr.filter(Boolean).length/n*100) : 0;
+  const dificil = pct(list.map(r=>["Difícil","Muito difícil"].includes(r.respostas.q1)));
+  const padraoPoucoClaro = pct(list.map(r=>["Parcialmente","Não"].includes(r.respostas.q3)));
+  const fatoresErro = pct(list.map(r=>["Sim","Talvez"].includes(r.respostas.q13)));
+  const melhoria = pct(list.map(r=> (r.respostas.q12&&r.respostas.q12.length>0) ));
+  const ultima = n? formatDate(list[0].dataHora):"—";
+
+  return `
+    <div class="card">${filtroPeriodoHtml()}</div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-val">${n}</div><div class="kpi-label">Total de respostas</div></div>
+      <div class="kpi-card"><div class="kpi-val" style="font-size:15px;">${ultima}</div><div class="kpi-label">Última resposta</div></div>
+      <div class="kpi-card"><div class="kpi-val">${dificil}%</div><div class="kpi-label">Consideram a operação difícil</div></div>
+      <div class="kpi-card"><div class="kpi-val">${padraoPoucoClaro}%</div><div class="kpi-label">Padrão visual pouco claro</div></div>
+      <div class="kpi-card"><div class="kpi-val">${fatoresErro}%</div><div class="kpi-label">Identificam fatores de erro</div></div>
+      <div class="kpi-card"><div class="kpi-val">${melhoria}%</div><div class="kpi-label">Sugerem alguma melhoria</div></div>
+    </div>
+    ${n===0? `<div class="card center small">Ainda não existem respostas suficientes para gerar os gráficos.</div>` : `
+    <div class="chart-box"><h3>Nível de dificuldade da operação</h3><canvas id="chart1"></canvas></div>
+    <div class="chart-box"><h3>Etapas que exigem maior atenção</h3><canvas id="chart2"></canvas></div>
+    <div class="chart-box"><h3>Principais dificuldades encontradas</h3><canvas id="chart3"></canvas></div>
+    <div class="chart-box"><h3>Momento com maior possibilidade de erro</h3><canvas id="chart4"></canvas></div>
+    <div class="chart-box"><h3>Clareza do padrão visual</h3><canvas id="chart5"></canvas></div>
+    <div class="chart-box"><h3>Fatores que podem tirar a atenção</h3><canvas id="chart6"></canvas></div>
+    <div class="chart-box"><h3>Avaliação do treinamento</h3><canvas id="chart7"></canvas></div>
+    <div class="chart-box"><h3>Prevenções consideradas mais úteis</h3><canvas id="chart8"></canvas></div>
+    `}
+  `;
+}
+
+function countBy(list, field, isMulti){
+  const counts = {};
+  list.forEach(r=>{
+    const v = r.respostas[field];
+    if(v===undefined || v===null) return;
+    if(isMulti){
+      (Array.isArray(v)?v:[]).forEach(x=> counts[x]=(counts[x]||0)+1 );
+    } else {
+      counts[v]=(counts[v]||0)+1;
+    }
+  });
+  return counts;
+}
+
+function renderBarChart(canvasId, countsObj, color){
+  const ctx = document.getElementById(canvasId);
+  if(!ctx) return;
+  const labels = Object.keys(countsObj);
+  const data = Object.values(countsObj);
+  if(state.charts[canvasId]) state.charts[canvasId].destroy();
+  state.charts[canvasId] = new Chart(ctx, {
+    type:"bar",
+    data:{labels, datasets:[{data, backgroundColor: color||"#0040c1", borderRadius:6}]},
+    options:{plugins:{legend:{display:false}}, scales:{x:{ticks:{font:{size:10}}}, y:{beginAtZero:true, ticks:{precision:0}}}}
+  });
+}
+
+function renderCharts(){
+  const list = filteredResponses();
+  if(list.length===0) return;
+  renderBarChart("chart1", countBy(list,"q1"), "#0040c1");
+  renderBarChart("chart2", countBy(list,"q2"), "#00c853");
+  renderBarChart("chart3", countBy(list,"q4",true), "#ffd600");
+  renderBarChart("chart4", countBy(list,"q5"), "#d50000");
+  renderBarChart("chart5", countBy(list,"q7"), "#0040c1");
+  renderBarChart("chart6", countBy(list,"q9",true), "#00c853");
+  renderBarChart("chart7", countBy(list,"q11"), "#ffd600");
+  renderBarChart("chart8", countBy(list,"q12",true), "#0040c1");
+}
+
+/* ============ TAB ANÁLISE AUTOMÁTICA ============ */
+function tabAnalise(){
+  const list = filteredResponses();
+  const n = list.length;
+  if(n<5){
+    return `<div class="card">${filtroPeriodoHtml()}</div><div class="card center small">Ainda não existem respostas suficientes para gerar esta análise.</div>`;
+  }
+  const insights = [];
+  const c2 = countBy(list,"q2");
+  const topEtapa = Object.entries(c2).sort((a,b)=>b[1]-a[1])[0];
+  if(topEtapa) insights.push(`A maior concentração de respostas indica maior atenção necessária na etapa de <b>${topEtapa[0]}</b> (${Math.round(topEtapa[1]/n*100)}% das respostas).`);
+
+  const claro = list.filter(r=>["Parcialmente","Não"].includes(r.respostas.q3)).length;
+  if(claro/n >= 0.2) insights.push(`Uma parcela significativa (${Math.round(claro/n*100)}%) considera que o padrão visual da alavanca poderia ser mais claro.`);
+
+  const c9 = countBy(list,"q9",true);
+  const topAtencao = Object.entries(c9).sort((a,b)=>b[1]-a[1])[0];
+  if(topAtencao) insights.push(`O fator mais citado como capaz de tirar a atenção do processo foi <b>${topAtencao[0]}</b>.`);
+
+  const c4 = countBy(list,"q4",true);
+  const topDificuldade = Object.entries(c4).sort((a,b)=>b[1]-a[1])[0];
+  if(topDificuldade) insights.push(`A dificuldade mais citada na execução foi <b>${topDificuldade[0]}</b>.`);
+
+  const favErro = list.filter(r=>["Sim","Talvez"].includes(r.respostas.q13)).length;
+  if(favErro/n >= 0.2) insights.push(`${Math.round(favErro/n*100)}% dos operadores acreditam que existe alguma característica do processo que favorece a ocorrência de erro.`);
+
+  const c11 = countBy(list,"q11");
+  const treinoRuim = (c11["Regular"]||0)+(c11["Precisa melhorar"]||0)+(c11["Não recebi treinamento específico"]||0);
+  if(treinoRuim/n >= 0.25) insights.push(`${Math.round(treinoRuim/n*100)}% avaliam o treinamento recebido como regular, insuficiente ou inexistente.`);
+
+  return `
+    <div class="card">${filtroPeriodoHtml()}</div>
+    <div class="card">
+      <h3 style="margin-top:0;">Principais pontos de atenção</h3>
+      ${insights.length? insights.map(i=>`<div class="insight">${i}</div>`).join("") : `<p class="small">Nenhum ponto de atenção relevante identificado no período.</p>`}
+      <p class="small" style="margin-top:14px;">Análise gerada automaticamente a partir de ${n} respostas reais. Nenhuma informação foi inferida além dos dados coletados.</p>
+    </div>
+  `;
+}
+
+/* ============ TAB VOZ DO OPERADOR ============ */
+const TEMA_KEYWORDS = {
+  "Informação visual": ["visual","foto","imagem","marcação","vídeo","ver","enxergar"],
+  "Treinamento": ["treinamento","treinar","explicar","ensinar","instrução"],
+  "Ritmo da operação": ["ritmo","tempo","rápido","correria","pressão","ciclo"],
+  "Conferência": ["conferência","conferir","checklist","checar","verificar"],
+  "Equipamento": ["ferramenta","equipamento","dispositivo","torque","chave"]
+};
+
+function extractThemes(texts){
+  const counts = {};
+  Object.keys(TEMA_KEYWORDS).forEach(t=>counts[t]=0);
+  texts.forEach(txt=>{
+    const low = (txt||"").toLowerCase();
+    Object.entries(TEMA_KEYWORDS).forEach(([tema,kws])=>{
+      if(kws.some(k=>low.includes(k))) counts[tema]++;
+    });
+  });
+  return Object.entries(counts).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+}
+
+function tabVoz(){
+  const list = filteredResponses();
+  const q14 = list.map(r=>r.respostas.q14).filter(t=>t && t.trim());
+  const q15 = list.map(r=>r.respostas.q15).filter(t=>t && t.trim());
+  const temasQ14 = extractThemes(q14);
+  const temasQ15 = extractThemes(q15);
+  return `
+    <div class="card">${filtroPeriodoHtml()}</div>
+    <div class="card">
+      <h3 style="margin-top:0;">O que pode estar favorecendo o problema</h3>
+      ${temasQ14.length? `<div>${temasQ14.map(([t,c])=>`<span class="theme-tag">${t} (${c})</span>`).join("")}</div>`:""}
+      ${q14.length? q14.map(t=>`<div class="response-item">${escapeHtml(t)}</div>`).join(""): `<p class="small">Nenhuma resposta ainda.</p>`}
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">Sugestões para melhoria</h3>
+      ${temasQ15.length? `<div>${temasQ15.map(([t,c])=>`<span class="theme-tag">${t} (${c})</span>`).join("")}</div>`:""}
+      ${q15.length? q15.map(t=>`<div class="response-item">${escapeHtml(t)}</div>`).join(""): `<p class="small">Nenhuma resposta ainda.</p>`}
+    </div>
+  `;
+}
+
+/* ============ TAB MATRIZ DE CAUSAS ============ */
+const MATRIZ_KEYWORDS = {
+  "MÉTODO": ["sequência","instrução","padrão","processo","checklist","procedimento"],
+  "MÁQUINA": ["ferramenta","equipamento","dispositivo","torque","chave","skillit"],
+  "MEIO AMBIENTE": ["posto","movimentação","conversa","distração","ritmo","barulho","espaço"],
+  "PESSOA": ["cansaço","atenção","distraído","esqueci","pressa","dúvida"]
+};
+
+function classifySuggestion(txt){
+  const low = (txt||"").toLowerCase();
+  const found = [];
+  Object.entries(MATRIZ_KEYWORDS).forEach(([cat,kws])=>{
+    if(kws.some(k=>low.includes(k))) found.push(cat);
+  });
+  return found;
+}
+
+function tabMatriz(){
+  const list = filteredResponses();
+  const all = list.flatMap(r=>[r.respostas.q14, r.respostas.q15]).filter(t=>t && t.trim());
+  const buckets = {"MÉTODO":[], "MÁQUINA":[], "MEIO AMBIENTE":[], "PESSOA":[]};
+  all.forEach(txt=>{
+    const cats = classifySuggestion(txt);
+    cats.forEach(c=>buckets[c].push(txt));
+  });
+  return `
+    <div class="card">${filtroPeriodoHtml()}</div>
+    <div class="card">
+      <p class="small">Organização automática das sugestões dos operadores por categoria (Método / Máquina / Meio Ambiente / Pessoa), sem atribuir causa definitiva. "Pessoa" só aparece quando a própria resposta menciona um fator humano, sem julgamento.</p>
+      ${Object.entries(buckets).map(([cat,items])=>`
+        <div class="matrix-cat">
+          <h4>${cat} (${items.length})</h4>
+          ${items.length? items.map(t=>`<div class="response-item">${escapeHtml(t)}</div>`).join("") : `<p class="small">Nenhuma sugestão classificada nesta categoria.</p>`}
+        </div>`).join("")}
+    </div>
+  `;
+}
+
+/* ============ TAB RESPOSTAS ============ */
+function tabRespostas(){
+  const list = filteredResponses();
+  return `
+    <div class="card">
+      ${filtroPeriodoHtml()}
+      <input type="text" id="searchInput" placeholder="Pesquisar nas respostas..." value="${escapeAttr(state.searchTerm)}" style="margin-top:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+        <p class="small" style="margin:0;">${list.length} resposta(s) encontrada(s)</p>
+        ${list.length>0? `<button class="btn" style="width:auto; padding:8px 12px; font-size:12px; background:#fde8e8; color:var(--vermelho);" id="btnDelAllFiltered">🗑 Excluir estas ${list.length}</button>` : ""}
+      </div>
+    </div>
+    <div class="card">
+      ${list.length===0? `<p class="small">Nenhuma resposta no período/filtro selecionado.</p>` :
+      list.map((r,i)=>{
+        if(state.editingResponse===r.id) return editResponseFormHtml(r);
+        return `
+        <div class="response-item">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <b>Resposta #${String(list.length-i).padStart(3,"0")}</b>
+            <span>
+              <button class="icon-btn" style="color:var(--azul);" data-edit-resp="${r.id}" title="Corrigir esta resposta">✏️</button>
+              <button class="icon-btn" style="color:var(--vermelho);" data-del-resp="${r.id}" title="Excluir esta resposta">🗑</button>
+            </span>
+          </div>
+          <span class="small">${formatDate(r.dataHora)} · v${r.versaoQuestionario||"1"}</span><br>
+          ${state.questions.filter(q=>q.active).sort((a,b)=>a.order-b.order).map(q=>{
+            const v = r.respostas[q.id];
+            if(v===undefined || v===null || v==="" || (Array.isArray(v)&&v.length===0)) return "";
+            return `<div style="margin-top:6px;"><span class="small">${q.text}</span><br><b>${Array.isArray(v)?v.join(", "):escapeHtml(String(v))}</b></div>`;
+          }).join("")}
+        </div>
+      `;}).join("")}
+    </div>
+  `;
+}
+
+/* ============ TAB ADMIN DE PERGUNTAS ============ */
+function tabAdmin(){
+  const qs = state.questions.slice().sort((a,b)=>a.order-b.order);
+  return `
+    <div class="card">
+      <button class="btn btn-primary" id="btnNovaPergunta">+ Nova pergunta</button>
+    </div>
+    ${qs.map((q,idx)=>`
+      <div class="card q-admin-item ${q.active?"":"inactive"}">
+        <div class="q-admin-row">
+          <b>${idx+1}. ${escapeHtml(q.text)}</b>
+        </div>
+        <p class="small">Tipo: ${tipoLabel(q.type)} · ${q.required?"Obrigatória":"Opcional"} ${q.conditional?`· Condicional a ${q.conditional.dependsOn}`:""}</p>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">
+          <button class="btn btn-outline" style="width:auto; padding:8px 12px; font-size:12px;" data-edit-q="${q.id}">✏️ Editar</button>
+          <button class="btn btn-outline" style="width:auto; padding:8px 12px; font-size:12px;" data-toggle-q="${q.id}">${q.active?"⏸ Desativar":"▶ Ativar"}</button>
+          <button class="btn btn-ghost" style="width:auto; padding:8px 12px; font-size:12px;" data-up-q="${q.id}">▲</button>
+          <button class="btn btn-ghost" style="width:auto; padding:8px 12px; font-size:12px;" data-down-q="${q.id}">▼</button>
+          <button class="btn btn-outline" style="width:auto; padding:8px 12px; font-size:12px; border-color:var(--vermelho); color:var(--vermelho);" data-del-q="${q.id}">🗑 Excluir</button>
+        </div>
+      </div>
+    `).join("")}
+    ${state.editingQuestion!==null ? questionEditorModal() : ""}
+  `;
+}
+
+function tipoLabel(t){
+  return {single:"Escolha única", multi:"Múltipla escolha", scale:"Escala", yesno:"Sim/Não",
+    yespartialno:"Sim/Parcialmente/Não", open:"Resposta aberta"}[t]||t;
+}
+
+function questionEditorModal(){
+  const isNew = state.editingQuestion==="__new__";
+  const q = isNew ? {id:"", text:"", type:"single", options:["",""], required:true, active:true} : state.questions.find(x=>x.id===state.editingQuestion);
+  return `
+  <div class="modal-overlay" id="questionEditorOverlay">
+    <div class="modal-box">
+      <button class="modal-close" id="btnCloseQEdit">✕</button>
+      <h2>${isNew?"Nova pergunta":"Editar pergunta"}</h2>
+      <label>Texto da pergunta</label>
+      <input type="text" id="editQText" value="${escapeAttr(q.text)}">
+      <label>Tipo</label>
+      <select id="editQType">
+        ${["single","multi","scale","yesno","yespartialno","open"].map(t=>`<option value="${t}" ${q.type===t?"selected":""}>${tipoLabel(t)}</option>`).join("")}
+      </select>
+      <div id="optionsWrap">${(q.type==="single"||q.type==="multi")? optionsEditorHtml(q.options||[]) : ""}</div>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:14px;">
+        <input type="checkbox" id="editQRequired" ${q.required?"checked":""} style="width:auto; margin:0;"> Pergunta obrigatória
+      </label>
+      <div class="btn-row" style="margin-left:0; margin-right:0;">
+        <button class="btn btn-ghost" id="btnCancelEdit">Cancelar</button>
+        <button class="btn btn-primary" id="btnSaveEdit">Salvar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function optionsEditorHtml(options){
+  return `
+    <label>Alternativas</label>
+    <div id="optsList">
+      ${options.map((o,i)=>`<div style="display:flex; gap:6px; margin-top:6px;">
+        <input type="text" class="opt-edit-input" data-opt-idx="${i}" value="${escapeAttr(o)}">
+        <button class="icon-btn" data-del-opt="${i}">🗑</button>
+      </div>`).join("")}
+    </div>
+    <button class="btn btn-ghost" id="btnAddOpt" style="margin-top:8px; font-size:12px;">+ Adicionar alternativa</button>
+  `;
+}
+
+/* ============ BACKUP / RESTAURAÇÃO ============ */
+const BACKUP_KEY = "alavanca_zero_last_backup";
+
+function backupModalHtml(){
+  const n = state.responses.length;
+  const nq = state.questions.length;
+  const last = localStorage.getItem(BACKUP_KEY);
+  const lastLabel = last ? new Date(last).toLocaleString("pt-BR") : "Nunca";
+  const sizeKb = Math.round((JSON.stringify({perguntas:state.questions, respostas:state.responses}).length)/1024);
+  const pct = Math.min(100, Math.round(sizeKb/50)); // barra apenas ilustrativa (limite de referência 5MB)
+  return `
+  <div class="modal-overlay" id="backupOverlay">
+    <div class="modal-box">
+      <button class="modal-close" id="btnCloseBackup">✕</button>
+      <h2>💾 Backup do ALAVANCA ZERO</h2>
+      <p class="small">Backup de segurança das perguntas e das respostas coletadas.</p>
+
+      <div class="modal-section">
+        <h4>ARMAZENAMENTO</h4>
+        <div class="storage-bar-bg"><div class="storage-bar-fill" style="width:${pct}%"></div></div>
+        <p class="small" style="margin-top:6px;">${n} respostas · ${nq} perguntas · ~${sizeKb} KB</p>
+        <p class="small">Último backup: <b>${lastLabel}</b></p>
+        ${last? "" : `<div class="insight">Você ainda não fez nenhum backup local. As respostas já ficam salvas no Firestore, mas um backup em .json é sua cópia extra de segurança.</div>`}
+      </div>
+
+      <div class="modal-section">
+        <h4>EXPORTAR</h4>
+        <div class="modal-btn-row">
+          <button class="btn btn-dark" id="btnExportJson">↓ Arquivo .json</button>
+          <button class="btn btn-purple" id="btnSaveDevice">📦 Salvar no dispositivo</button>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h4>RESTAURAR</h4>
+        <p class="small">Restaura o questionário (perguntas, tipos, ordem, ativação) a partir de um arquivo .json de backup. As respostas do arquivo ficam disponíveis só para conferência — elas não são reenviadas ao Firestore, para não gerar duplicidade.</p>
+        <div class="modal-btn-row">
+          <label class="btn btn-outline" style="cursor:pointer;">📁 De arquivo .json
+            <input type="file" id="inputRestore" accept="application/json" style="display:none;">
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildBackupPayload(){
+  return {
+    app: "ALAVANCA ZERO",
+    versaoQuestionario: VERSAO_QUESTIONARIO,
+    exportadoEm: new Date().toISOString(),
+    perguntas: state.questions,
+    respostas: state.responses.map(r=>({
+      dataHora: r.dataHora && r.dataHora.toDate ? r.dataHora.toDate().toISOString() : null,
+      versaoQuestionario: r.versaoQuestionario,
+      respostas: r.respostas
+    }))
+  };
+}
+
+function markBackupDone(){
+  localStorage.setItem(BACKUP_KEY, new Date().toISOString());
+}
+
+async function exportBackupDownload(){
+  const payload = buildBackupPayload();
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = `alavanca-zero-backup-${stamp}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  markBackupDone();
+  toast("Backup exportado.");
+  render();
+}
+
+async function saveBackupToDevice(){
+  const payload = buildBackupPayload();
+  const stamp = new Date().toISOString().slice(0,10);
+  if(window.showSaveFilePicker){
+    try{
+      const handle = await window.showSaveFilePicker({
+        suggestedName: `alavanca-zero-backup-${stamp}.json`,
+        types: [{description:"JSON", accept:{"application/json":[".json"]}}]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify(payload,null,2));
+      await writable.close();
+      markBackupDone();
+      toast("Backup salvo no dispositivo.");
+      render();
+      return;
+    }catch(e){
+      if(e.name==="AbortError") return;
+      console.error(e);
+    }
+  }
+  // Fallback (iOS Safari / navegadores sem File System Access API)
+  exportBackupDownload();
+}
+
+async function restoreFromFile(file){
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if(!data.perguntas || !Array.isArray(data.perguntas)){
+      toast("Arquivo inválido: nenhuma lista de perguntas encontrada.");
+      return;
+    }
+    if(!confirm(`Restaurar ${data.perguntas.length} pergunta(s) deste backup? O questionário atual será substituído.`)) return;
+    state.questions = data.perguntas;
+    await saveQuestions();
+    toast("Perguntas restauradas com sucesso.");
+    render();
+  }catch(e){
+    console.error(e);
+    toast("Erro ao ler o arquivo de backup.");
+  }
+}
+
+/* ============ HELPERS ============ */
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function escapeAttr(s){ return escapeHtml(s).replace(/`/g,"&#96;"); }
+function formatDate(ts){
+  if(!ts || !ts.toDate) return "—";
+  const d = ts.toDate();
+  return d.toLocaleDateString("pt-BR")+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+}
+
+/* ============ EVENTOS (delegação, sem inline onclick — compatibilidade iOS) ============ */
+function attachMonitorLoginEvents(){
+  const root = app();
+
+  root.querySelectorAll("[data-pin-key]").forEach(btn=>{
+    btn.addEventListener("click", async ()=>{
+      const key = btn.getAttribute("data-pin-key");
+
+      if(key === "⌫"){
+        state.pinInput = state.pinInput.slice(0,-1);
+        render();
+        return;
+      }
+
+      if(key === "C"){
+        state.pinInput = "";
+        render();
+        return;
+      }
+
+      if(!/^\d$/.test(key) || state.pinInput.length >= 4) return;
+
+      state.pinInput += key;
+      render();
+
+      if(state.pinInput.length === 4){
+        setTimeout(()=>signInMonitorPin(state.pinInput), 120);
+      }
+    });
+  });
+
+  const back = root.querySelector("#btnVoltarIntro");
+  if(back) back.addEventListener("click", e=>{
+    e.preventDefault();
+    state.pinInput="";
+    state.screen="intro";
+    render();
+  });
+}
+
+function attachEvents(){
+  if(state.screen==="monitorLogin") attachMonitorLoginEvents();
+  const root = app();
+
+  const on = (sel, evt, fn) => { const el = root.querySelector(sel); if(el) el.addEventListener(evt, fn); };
+  const onAll = (sel, evt, fn) => { root.querySelectorAll(sel).forEach(el=>el.addEventListener(evt, fn)); };
+
+  on("#btnIniciar","click", startQuiz);
+  on("#btnMonitorArea","click", ()=>{ state.screen="monitorLogin"; render(); });
+  on("#btnVoltarIntro","click", (e)=>{ e.preventDefault(); state.screen="intro"; render(); });
+  on("#btnFinalizar","click", ()=>{ state.screen="intro"; render(); });
+  on("#btnAlterarPin","click", ()=>{ state.showPinModal=true; render(); });
+  on("#btnCancelarPin","click", ()=>{ state.showPinModal=false; render(); });
+  on("#pinOverlay","click", (e)=>{ if(e.target.id==="pinOverlay"){ state.showPinModal=false; render(); } });
+  on("#btnSalvarPin","click", async ()=>{
+    const atual = root.querySelector("#pinAtual")?.value.trim();
+    const novo = root.querySelector("#pinNovo")?.value.trim();
+    const novo2 = root.querySelector("#pinNovo2")?.value.trim();
+
+    if(!validarPin(atual) || !validarPin(novo) || !validarPin(novo2)){
+      toast("Preencha os três campos com 4 números.");
+      return;
+    }
+    if(novo !== novo2){
+      toast("A confirmação do novo PIN não confere.");
+      return;
+    }
+
+    const btn = root.querySelector("#btnSalvarPin");
+    btn.disabled=true;
+    btn.textContent="ALTERANDO...";
+    await alterarPinMonitor(atual, novo);
+  });
+
+  on("#btnBackup","click", ()=>{ state.showBackupModal=true; render(); });
+  on("#btnCloseBackup","click", ()=>{ state.showBackupModal=false; render(); });
+  on("#backupOverlay","click", (e)=>{ if(e.target.id==="backupOverlay"){ state.showBackupModal=false; render(); } });
+  on("#btnExportJson","click", exportBackupDownload);
+  on("#btnSaveDevice","click", saveBackupToDevice);
+  on("#inputRestore","change", (e)=>{
+    const file = e.currentTarget.files[0];
+    if(file) restoreFromFile(file);
+  });
+  on("#btnSair","click", monitorLogout);
+
+  // Quiz answers
+  onAll("[data-single]","click",(e)=>{
+    const qid = e.currentTarget.getAttribute("data-single");
+    const val = e.currentTarget.getAttribute("data-val");
+    state.answers[qid] = isFinite(val) && currentQuestion().type==="scale" ? Number(val) : val;
+    render();
+  });
+  onAll("[data-multi]","click",(e)=>{
+    const qid = e.currentTarget.getAttribute("data-multi");
+    const val = e.currentTarget.getAttribute("data-val");
+    const arr = Array.isArray(state.answers[qid]) ? state.answers[qid].slice() : [];
+    const i = arr.indexOf(val);
+    if(i>=0) arr.splice(i,1); else arr.push(val);
+    state.answers[qid] = arr;
+    render();
+  });
+  onAll("[data-open]","input",(e)=>{
+    const qid = e.currentTarget.getAttribute("data-open");
+    state.answers[qid] = e.currentTarget.value;
+  });
+  on("#btnVoltar","click", goBack);
+  on("#btnProxima","click", goNext);
+
+  // Monitor tabs
+  onAll("[data-tab]","click",(e)=>{
+    state.monitorTab = e.currentTarget.getAttribute("data-tab");
+    state.editingQuestion=null;
+    state.editingResponse=null;
+    render();
+  });
+  onAll("[data-periodo]","click",(e)=>{
+    state.filtroPeriodo = e.currentTarget.getAttribute("data-periodo");
+    render();
+  });
+  on("#searchInput","input",(e)=>{ state.searchTerm = e.currentTarget.value; render(); });
+  onAll("[data-del-resp]","click", (e)=>{ deleteResponse(e.currentTarget.getAttribute("data-del-resp")); });
+  on("#btnDelAllFiltered","click", deleteAllFiltered);
+  onAll("[data-edit-resp]","click", (e)=>{ startEditResponse(e.currentTarget.getAttribute("data-edit-resp")); });
+  on("#btnCancelEditResp","click", cancelEditResponse);
+  on("#btnSaveEditResp","click", (e)=>{ saveEditResponse(e.currentTarget.getAttribute("data-save-resp-id")); });
+  onAll("[data-edit-single]","click",(e)=>{
+    const qid = e.currentTarget.getAttribute("data-edit-single");
+    state.editingResponseAnswers[qid] = e.currentTarget.getAttribute("data-val");
+    render();
+  });
+  onAll("[data-edit-multi]","click",(e)=>{
+    const qid = e.currentTarget.getAttribute("data-edit-multi");
+    const val = e.currentTarget.getAttribute("data-val");
+    const arr = Array.isArray(state.editingResponseAnswers[qid]) ? state.editingResponseAnswers[qid].slice() : [];
+    const i = arr.indexOf(val);
+    if(i>=0) arr.splice(i,1); else arr.push(val);
+    state.editingResponseAnswers[qid] = arr;
+    render();
+  });
+  onAll("[data-edit-open]","input",(e)=>{
+    const qid = e.currentTarget.getAttribute("data-edit-open");
+    state.editingResponseAnswers[qid] = e.currentTarget.value;
+  });
+
+  // Admin CRUD
+  on("#btnNovaPergunta","click", ()=>{ state.editingQuestion="__new__"; render(); });
+  onAll("[data-edit-q]","click",(e)=>{ state.editingQuestion = e.currentTarget.getAttribute("data-edit-q"); render(); });
+  onAll("[data-toggle-q]","click",async (e)=>{
+    const id = e.currentTarget.getAttribute("data-toggle-q");
+    const q = state.questions.find(x=>x.id===id);
+    const prev = q.active;
+    q.active = !q.active;
+    render();
+    try{ await saveQuestions(); }
+    catch(err){ console.error(err); q.active = prev; render(); toast("Erro ao salvar (" + (err.code||err.message||"falha de conexão") + ").", 5000); }
+  });
+  onAll("[data-up-q]","click", async (e)=>{
+    const id = e.currentTarget.getAttribute("data-up-q");
+    const before = JSON.parse(JSON.stringify(state.questions));
+    moveQuestion(id,-1); render();
+    try{ await saveQuestions(); }
+    catch(err){ console.error(err); state.questions = before; render(); toast("Erro ao salvar (" + (err.code||err.message||"falha de conexão") + ").", 5000); }
+  });
+  onAll("[data-down-q]","click", async (e)=>{
+    const id = e.currentTarget.getAttribute("data-down-q");
+    const before = JSON.parse(JSON.stringify(state.questions));
+    moveQuestion(id,1); render();
+    try{ await saveQuestions(); }
+    catch(err){ console.error(err); state.questions = before; render(); toast("Erro ao salvar (" + (err.code||err.message||"falha de conexão") + ").", 5000); }
+  });
+  onAll("[data-del-q]","click", async (e)=>{
+    const id = e.currentTarget.getAttribute("data-del-q");
+    if(!confirm("Excluir esta pergunta permanentemente?")) return;
+    const before = JSON.parse(JSON.stringify(state.questions));
+    state.questions = state.questions.filter(x=>x.id!==id);
+    render();
+    try{ await saveQuestions(); }
+    catch(err){ console.error(err); state.questions = before; render(); toast("Erro ao excluir (" + (err.code||err.message||"falha de conexão") + ").", 5000); }
+  });
+
+  on("#editQType","change",(e)=>{
+    const wrap = root.querySelector("#optionsWrap");
+    const newType = e.currentTarget.value;
+    if(newType==="single"||newType==="multi"){
+      const existing = Array.from(root.querySelectorAll(".opt-edit-input")).map(i=>i.value);
+      wrap.innerHTML = optionsEditorHtml(existing.length? existing : ["",""]);
+    } else { wrap.innerHTML=""; }
+  });
+  on("#btnAddOpt","click",()=>{
+    const list = root.querySelector("#optsList");
+    const idx = list.querySelectorAll(".opt-edit-input").length;
+    const div = document.createElement("div");
+    div.style.cssText="display:flex; gap:6px; margin-top:6px;";
+    div.innerHTML = `<input type="text" class="opt-edit-input" data-opt-idx="${idx}" value=""><button class="icon-btn" data-del-opt="${idx}">🗑</button>`;
+    list.appendChild(div);
+    div.querySelector("[data-del-opt]").addEventListener("click", ()=>div.remove());
+  });
+  onAll("[data-del-opt]","click",(e)=>{ e.currentTarget.parentElement.remove(); });
+
+  on("#btnCancelEdit","click", ()=>{ state.editingQuestion=null; render(); });
+  on("#btnCloseQEdit","click", ()=>{ state.editingQuestion=null; render(); });
+  on("#questionEditorOverlay","click", (e)=>{ if(e.target.id==="questionEditorOverlay"){ state.editingQuestion=null; render(); } });
+  on("#btnSaveEdit","click", async ()=>{
+    const text = root.querySelector("#editQText").value.trim();
+    const type = root.querySelector("#editQType").value;
+    const required = root.querySelector("#editQRequired").checked;
+    if(!text){ toast("Preencha o texto da pergunta."); return; }
+    let options = [];
+    if(type==="single"||type==="multi"){
+      options = Array.from(root.querySelectorAll(".opt-edit-input")).map(i=>i.value.trim()).filter(Boolean);
+      if(options.length<2){ toast("Adicione pelo menos 2 alternativas."); return; }
+    }
+    const before = JSON.parse(JSON.stringify(state.questions));
+    if(state.editingQuestion==="__new__"){
+      const newId = "q_"+Date.now();
+      const maxOrder = Math.max(0,...state.questions.map(x=>x.order));
+      state.questions.push({id:newId, order:maxOrder+1, active:true, required, type, text, options: options.length?options:undefined});
+    } else {
+      const q = state.questions.find(x=>x.id===state.editingQuestion);
+      q.text=text; q.type=type; q.required=required;
+      if(options.length) q.options=options; else delete q.options;
+    }
+    const btn = root.querySelector("#btnSaveEdit");
+    btn.disabled = true; btn.textContent = "Salvando...";
+    try{
+      await saveQuestions();
+      state.editingQuestion=null;
+      render();
+      toast("Pergunta salva.");
+    }catch(err){
+      console.error(err);
+      state.questions = before;
+      btn.disabled = false; btn.textContent = "Salvar";
+      toast("Erro ao salvar (" + (err.code||err.message||"falha de conexão") + ").", 5000);
+    }
+  });
+}
+
+function moveQuestion(id, dir){
+  const sorted = state.questions.slice().sort((a,b)=>a.order-b.order);
+  const idx = sorted.findIndex(x=>x.id===id);
+  const swapIdx = idx+dir;
+  if(swapIdx<0 || swapIdx>=sorted.length) return;
+  const tmp = sorted[idx].order;
+  sorted[idx].order = sorted[swapIdx].order;
+  sorted[swapIdx].order = tmp;
+}
+
+/* ============ INIT ============ */
+async function init(){
+  auth.onAuthStateChanged(async (user)=>{
+    if(user){
+      try{
+        const profile = await db.collection("users").doc(user.uid).get();
+        if(profile.exists && profile.data().role === "monitor"){
+          state.monitorLoggedIn = true;
+          state.monitorUser = user;
+          state.screen = "monitor";
+          state.monitorTab = "dashboard";
+        } else {
+          await auth.signOut();
+        }
+      }catch(e){ console.error(e); }
+    }
+    await loadQuestions();
+    render();
+  });
+}
+init();
+</script>
+</body>
+</html>

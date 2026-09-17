@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Questionário público: qualquer pessoa pode ler perguntas ativas.
+    match /config/questionario {
+      allow read: if true;
+      allow write: if isMonitor();
+    }
+
+    // Perfis de acesso. O próprio monitor pode ler seu perfil;
+    // somente um monitor já autorizado pode alterar perfis.
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update, delete: if isMonitor();
+    }
+
+    // Respostas: público pode SOMENTE criar um novo diagnóstico.
+    // Leitura, edição e exclusão ficam restritas aos monitores.
+    match /diagnosticos_alavanca/{docId} {
+      allow create: if
+        request.resource.data.keys().hasAll(['dataHora','versaoQuestionario','respostas']) &&
+        request.resource.data.keys().hasOnly(['dataHora','versaoQuestionario','respostas']) &&
+        request.resource.data.respostas is map &&
+        request.resource.data.versaoQuestionario is string;
+
+      allow read, update, delete: if isMonitor();
+    }
+
+    // Bloqueia qualquer outra coleção/caminho.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isMonitor() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'monitor';
+    }
+  }
+}

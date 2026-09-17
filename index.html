@@ -427,21 +427,17 @@ function pinBackspace(){
   render();
 }
 async function checkPin(){
-  if(state.pinInput===state.monitorPin){
-    state.monitorLoggedIn=true;
-    state.pinInput="";
-    state.screen="monitor";
-    state.monitorTab="dashboard";
-    await loadResponses();
-    render();
-  } else {
-    toast("PIN incorreto.");
-    state.pinInput="";
-    render();
-  }
+  const pin = state.pinInput;
+  state.pinInput = "";
+  render();
+  await signInMonitorPin(pin);
 }
-function monitorLogout(){
+async function monitorLogout(){
+  try{ await auth.signOut(); }catch(e){ console.error(e); }
   state.monitorLoggedIn=false;
+  state.monitorUser=null;
+  state.responses=[];
+  state.responsesLoaded=false;
   state.screen="intro";
   render();
 }
@@ -1642,6 +1638,7 @@ async function init(){
           state.monitorUser = user;
           state.screen = "monitor";
           state.monitorTab = "dashboard";
+          await loadResponses();
         } else {
           await auth.signOut();
         }

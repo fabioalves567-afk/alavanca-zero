@@ -1629,6 +1629,7 @@ function moveQuestion(id, dir){
 
 /* ============ INIT ============ */
 async function init(){
+  await auth.signOut();
   auth.onAuthStateChanged(async (user)=>{
     if(user){
       try{
